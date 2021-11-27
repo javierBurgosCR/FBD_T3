@@ -3,12 +3,13 @@
     path: api/auth
 */
 
-const { Router, response } = require('express');
+const { Router } = require('express');
 const router = Router();
 const { check } = require('express-validator');
 
 const { createUser, loginUser, renewToken } = require('../controllers/auth');
 const { validarCampos } = require('../middlewares/validar-campos');
+const { validarJWT } = require('../middlewares/validar-jwt');
 
 router.post(
   '/register',
@@ -41,6 +42,6 @@ router.post(
   loginUser
 );
 
-router.get('/renew', renewToken);
+router.get('/renew', validarJWT, renewToken);
 
 module.exports = router;

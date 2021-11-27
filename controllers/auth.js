@@ -1,7 +1,11 @@
 const { response, request } = require('express');
 const User = require('../models/Usuario');
 const bcrypt = require('bcryptjs');
+const { generarJWT } = require('../helpers/jwt');
 
+/****************************************************
+/ Registrar nuevo usuario
+*****************************************************/
 const createUser = async (req = request, res = response) => {
   const { email, password } = req.body;
   try {
@@ -26,11 +30,15 @@ const createUser = async (req = request, res = response) => {
     // Guardamos al nuevo usuario en mongo
     await user.save();
 
+    // Generamos el token
+    const token = await generarJWT(user.id, user.name);
+
     // Devolvemos
     res.status(201).json({
       ok: true,
       uid: user.id,
       name: user.name,
+      token,
     });
   } catch (error) {
     console.log(error);
@@ -41,20 +49,67 @@ const createUser = async (req = request, res = response) => {
   }
 };
 
-const loginUser = (req, res = response) => {
+/****************************************************
+/ Login de usuario
+*****************************************************/
+const loginUser = async (req, res = response) => {
   const { email, password } = req.body;
-  res.status(200).json({
-    ok: true,
-    msg: 'login',
-    email,
-    password,
-  });
+
+  try {
+    // Buscamos algun usuario con ese email
+    let user = await User.findOne({ email });
+
+    // Si existe un usuario con ese email
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        msg: 'Usuario no encontrado',
+      });
+    }
+
+    // comparamos la contraseña con la base de datos
+    const validPassword = bcrypt.compareSync(password, user.password);
+
+    // Si la contraseña no es valida
+    if (!validPassword) {
+      return res.status(400).json({
+        ok: false,
+        msg: 'La contraseña no es valida',
+      });
+    }
+
+    // Generar token
+    const token = await generarJWT(user.id, user.name);
+
+    // Devolvemos
+    res.status(200).json({
+      ok: true,
+      uid: user.id,
+      name: user.name,
+      token,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      ok: false,
+      msg: 'Ha ocurrido un error. No se pudo hacer el login',
+    });
+  }
 };
 
-const renewToken = (req, res = response) => {
+/****************************************************
+/ Revalidar token de usuario
+*****************************************************/
+const renewToken = async (req, res = response) => {
+  const { uid, name } = req;
+
+  // Generar token
+  const token = await generarJWT(uid, name);
+
+  //
   res.json({
     ok: true,
-    msg: 'renew',
+    token,
   });
 };
 
